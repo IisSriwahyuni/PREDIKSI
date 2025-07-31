@@ -1,84 +1,163 @@
-# app.py
+GITHUB
 
 import streamlit as st
 import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
-import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report, confusion_matrix, precision_score, recall_score, f1_score
 
+# Konfigurasi tampilan halaman
 st.set_page_config(layout="wide")
-st.title("Prediksi Penjualan Produk Wings di Y-Mart Menggunakan Decision Tree C4.5")
+st.title("📊 Prediksi Penjualan Produk Wings Toko Ymart Kawali")
 
 # Load dataset
-st.subheader("1. Data Penjualan")
-uploaded_file = st.file_uploader("Unggah file CSV dataset", type="csv")
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
+@st.cache_data
+def load_data():
+    return pd.read_csv("PRODUK_WINGS_YMART_BERSIH.csv")
 
-    st.dataframe(df.head())
+df = load_data()
 
-    # Pastikan kolom yang dibutuhkan ada
-    required_columns = ['Qty', 'Harga', 'Jual', 'Kategori']
-    if not all(col in df.columns for col in required_columns):
-        st.error("Dataset harus memiliki kolom: 'Qty', 'Harga', 'Jual', dan 'Kategori'")
-        st.stop()
+# Validasi kolom
+required_columns = ['Qty', 'Harga', 'Kategori Penjualan']
+if not all(col in df.columns for col in required_columns):
+    st.error("❌ Dataset tidak lengkap. Harus mengandung kolom: Qty, Harga, Kategori Penjualan.")
+    st.stop()
 
-    # Konversi kolom numerik
-    for col in ['Qty', 'Harga', 'Jual']:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+# Sidebar Navigasi
+menu = st.sidebar.radio("NAVIGASI", [
+    "Dataset", "Distribusi Penjualan", "Pola Penjualan", "Decision Tree", "Evaluasi Model", "Visualisasi Tambahan"
+])
 
-    # Hapus data kosong
-    df.dropna(subset=required_columns, inplace=True)
+# Tampilan Dataset
+if menu == "Dataset":
+    st.header("📁 Data Penjualan Produk Wings")
+    st.dataframe(df)
 
-    # Label encoding untuk target
-    label_encoder = LabelEncoder()
-    df['Kategori'] = label_encoder.fit_transform(df['Kategori'])
+# Distribusi Penjualan
+elif menu == "Distribusi Penjualan":
+    st.header("📊 Distribusi Qty Penjualan")
+    fig, ax = plt.subplots(figsize=(4, 3))
+    sns.histplot(df["Qty"], bins=30, kde=True, color="skyblue", ax=ax)
+    ax.set_xlabel("Qty", fontsize=10)
+    ax.set_ylabel("Jumlah Produk", fontsize=10)
+    ax.set_title("Distribusi Qty Penjualan Produk", fontsize=12)
+    st.pyplot(fig)
 
-    # Split fitur dan target
-    X = df[['Qty', 'Harga', 'Jual']]
-    y = df['Kategori']
+# Pola Penjualan
+elif menu == "Pola Penjualan":
+    st.header("📈 Pola Penjualan per Kategori")
+    fig, ax = plt.subplots(figsize=(4, 3))
+    sns.boxplot(x="Kategori Penjualan", y="Qty", data=df, palette="viridis", ax=ax)
+    ax.set_title("Pola Penjualan per Kategori", fontsize=10)
+    ax.set_xlabel("Kategori Penjualan", fontsize=9)
+    ax.set_ylabel("Qty", fontsize=8)
+    st.pyplot(fig)
 
-    # Split train-test
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Decision Tree
+elif menu == "Decision Tree":
+    st.header("🌳 Visualisasi Decision Tree")
+    X = df[['Qty', 'Harga']]
+    y = df['Kategori Penjualan']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
 
-    # Inisialisasi model Decision Tree (C4.5 menggunakan entropy)
-    model_c45 = DecisionTreeClassifier(criterion='entropy', max_depth=None, random_state=42)
-    model_c45.fit(X_train, y_train)
+    model = DecisionTreeClassifier(criterion='entropy', max_depth=3, random_state=42)
+    model.fit(X_train, y_train)
 
-    # Prediksi dan evaluasi
-    y_pred = model_c45.predict(X_test)
+    st.markdown(f"""
+    **Pembagian Data:**
+    - Total Data: {len(df)}
+    - Data Latih: {len(X_train)}
+    - Data Uji: {len(X_test)}
+    """)
 
-    # Evaluasi model
-    st.subheader("2. Evaluasi Model C4.5")
-    st.write("**Akurasi Model:**", f"{accuracy_score(y_test, y_pred):.2%}")
-    st.text("Classification Report:")
-    st.code(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
+    fig, ax = plt.subplots(figsize=(18, 8))
+    plot_tree(model,
+              feature_names=['Qty', 'Harga'],
+              class_names=model.classes_,
+              filled=True,
+              rounded=True,
+              fontsize=10,
+              ax=ax)
+    st.pyplot(fig)
 
-    # Confusion matrix
-    st.subheader("Confusion Matrix")
-    cm = confusion_matrix(y_test, y_pred)
-    fig_cm, ax_cm = plt.subplots()
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
-    plt.xlabel("Prediksi")
-    plt.ylabel("Aktual")
-    st.pyplot(fig_cm)
+# Evaluasi Model
+elif menu == "Evaluasi Model":
+    st.header("📋 Evaluasi Model dengan Data Uji")
+    X = df[['Qty', 'Harga']]
+    y = df['Kategori Penjualan']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.4, random_state=42)
 
-    # Visualisasi pohon keputusan
-    st.subheader("3. Visualisasi Decision Tree (C4.5)")
-    fig_tree, ax_tree = plt.subplots(figsize=(16, 8))
-    plot_tree(
-        model_c45,
-        feature_names=X.columns,
-        class_names=label_encoder.classes_,
-        filled=True,
-        rounded=True,
-        fontsize=10
-    )
-    st.pyplot(fig_tree)
+    model = DecisionTreeClassifier(criterion='entropy', max_depth=3, random_state=42)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
 
-else:
-    st.warning("Silakan unggah file dataset terlebih dahulu (.csv)")
+    cm = confusion_matrix(y_test, y_pred, labels=model.classes_)
+    cr = classification_report(y_test, y_pred, target_names=model.classes_, output_dict=True)
+    precision = precision_score(y_test, y_pred, average='weighted')
+    recall = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
+
+    # Confusion Matrix
+    st.subheader("📌 Confusion Matrix")
+    cm_df = pd.DataFrame(cm, index=model.classes_, columns=model.classes_)
+    st.dataframe(cm_df)
+
+    fig, ax = plt.subplots(figsize=(4, 3))
+    sns.heatmap(cm_df, annot=True, fmt='d', cmap='Blues', ax=ax)
+    ax.set_title("Confusion Matrix Heatmap")
+    st.pyplot(fig)
+
+    # Classification Report
+    st.subheader("📌 Classification Report")
+    cr_df = pd.DataFrame(cr).transpose()
+    st.dataframe(cr_df.round(2))
+
+    # Evaluasi Bar Plot
+    st.subheader("📌 Metode Evaluasi Skor (Data Uji)")
+    st.markdown(f"""
+    - 🎯 **Precision (Weighted Avg)**: `{precision:.2f}`
+    - 🎯 **Recall (Weighted Avg)**: `{recall:.2f}`
+    - 🎯 **F1 Score (Weighted Avg)**: `{f1:.2f}`
+    """)
+
+    fig, ax = plt.subplots(figsize=(4, 3))
+    scores = [precision, recall, f1]
+    labels = ["Precision", "Recall", "F1 Score"]
+    sns.barplot(x=labels, y=scores, palette="Set2", ax=ax)
+    ax.set_ylim(0, 1.0)
+    ax.set_ylabel("Score")
+    ax.set_title("Evaluasi Model (Data Uji)")
+    for i, v in enumerate(scores):
+        ax.text(i, v + 0.02, f"{v*100:.1f}%", ha='center', fontsize=8)
+    st.pyplot(fig)
+
+# Visualisasi Tambahan
+elif menu == "Visualisasi Tambahan":
+    st.header("📊 Visualisasi Tambahan")
+
+    # Countplot kategori
+    st.subheader("Jumlah Produk per Kategori Penjualan")
+    fig, ax = plt.subplots(figsize=(4, 3))
+    sns.countplot(data=df, x='Kategori Penjualan', palette='coolwarm', ax=ax)
+    ax.set_title("Jumlah Data per Kategori Penjualan")
+    st.pyplot(fig)
+
+    # Scatter plot Qty vs Harga
+    st.subheader("Sebaran Qty vs Harga berdasarkan Kategori")
+    fig, ax = plt.subplots(figsize=(4, 3))
+    sns.scatterplot(data=df, x='Qty', y='Harga', hue='Kategori Penjualan', palette='deep', ax=ax)
+    ax.set_title("Qty vs Harga per Kategori Penjualan")
+    st.pyplot(fig)
+
+    # Pie chart proporsi kategori
+    st.subheader("Proporsi Kategori Penjualan")
+    fig, ax = plt.subplots(figsize=(3, 3))
+    kategori_counts = df['Kategori Penjualan'].value_counts()
+    if not kategori_counts.empty:
+        ax.pie(kategori_counts, labels=kategori_counts.index, autopct='%1.1f%%', startangle=140)
+        ax.axis('equal')
+        st.pyplot(fig)
+    else:
+        st.warning("⚠️ Data kategori penjualan kosong, tidak dapat ditampilkan.")
