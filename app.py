@@ -2,68 +2,82 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
-# Judul Aplikasi
-st.title("Dashboard Prediksi Kategori Penjualan Produk Wings")
+st.title("📊 Dashboard Prediksi Kategori Penjualan - Decision Tree C4.5")
 
-# Upload File CSV
-uploaded_file = st.file_uploader("Upload file CSV", type=["csv"])
+# Upload file CSV
+uploaded_file = st.file_uploader("Unggah Dataset CSV", type="csv")
 
-if uploaded_file is not None:
-    # Baca file CSV
+if uploaded_file:
     df = pd.read_csv(uploaded_file)
+    st.subheader("📄 Tabel Data")
+    st.dataframe(df)
 
-    # Tampilkan Dataframe
-    st.subheader("Dataset")
-    st.dataframe(df.head())
+    # Mapping nama kolom agar konsisten
+    df = df.rename(columns=lambda x: x.strip())
 
-    # Informasi kolom
-    if 'Kategori Penjualan' in df.columns and 'Qty' in df.columns:
-        st.subheader("Jumlah Produk per Kategori Penjualan (Diurutkan berdasarkan Qty)")
-        kategori_terurut = df.groupby('Kategori Penjualan').apply(lambda x: x.sort_values(by='Qty', ascending=False)).reset_index(drop=True)
-        st.dataframe(kategori_terurut[['Nama Barang', 'Qty', 'Kategori Penjualan']])
+    # Visualisasi: Diagram Batang per Kategori Penjualan (Jumlah)
+    st.subheader("📊 Jumlah Data per Kategori Penjualan")
+    fig1, ax1 = plt.subplots()
+    sns.countplot(data=df, x="Kategori Penjualan", order=["Laris", "Sedang", "Tidak Laris"], ax=ax1)
+    st.pyplot(fig1)
 
-    # Preprocessing Data
-    st.subheader("Preprocessing dan Training Model")
-    try:
-        fitur = ['Qty', 'Harga']
-        X = df[fitur]
-        y = df['Kategori Penjualan']
+    # Visualisasi: Produk Terlaris per Kategori (berdasarkan Qty)
+    st.subheader("🏆 Produk Terlaris per Kategori")
+    for kategori in ["Laris", "Sedang", "Tidak Laris"]:
+        st.markdown(f"### {kategori}")
+        top_produk = df[df["Kategori Penjualan"] == kategori].sort_values(by="Qty", ascending=False).head(5)
+        fig2, ax2 = plt.subplots()
+        sns.barplot(x="Qty", y="Nama Barang", data=top_produk, ax=ax2, palette="viridis")
+        ax2.set_title(f"Top 5 Produk - {kategori}")
+        st.pyplot(fig2)
 
-        # Split data
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # Preprocessing untuk model
+    st.subheader("⚙️ Pelatihan Model C4.5")
 
-        # Buat model C4.5 (Decision Tree dengan entropy)
-        model_c45 = DecisionTreeClassifier(criterion='entropy', random_state=42)
-        model_c45.fit(X_train, y_train)
+    # Fitur numerik
+    fitur = ['Qty', 'Harga', 'Jual (Rupiah)']
+    X = df[fitur]
+    y = df['Kategori Penjualan']
 
-        # Prediksi
-        y_pred = model_c45.predict(X_test)
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        # Evaluasi
-        st.markdown("### Evaluasi Model")
-        st.text("Confusion Matrix:")
-        cm = confusion_matrix(y_test, y_pred)
-        st.text(cm)
+    # Model Decision Tree (C4.5)
+    model_c45 = DecisionTreeClassifier(criterion='entropy', random_state=42)
+    model_c45.fit(X_train, y_train)
 
-        st.text("\nClassification Report:")
-        cr = classification_report(y_test, y_pred)
-        st.text(cr)
+    # Evaluasi Model
+    y_pred = model_c45.predict(X_test)
 
-        acc = accuracy_score(y_test, y_pred)
-        st.success(f"Akurasi Model: {acc:.2f}")
+    st.text("Classification Report:")
+    st.text(classification_report(y_test, y_pred))
 
-        # Visualisasi Confusion Matrix
-        st.subheader("Visualisasi Confusion Matrix")
-        fig, ax = plt.subplots()
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=model_c45.classes_, yticklabels=model_c45.classes_, ax=ax)
-        plt.xlabel("Prediksi")
-        plt.ylabel("Aktual")
-        plt.title("Confusion Matrix - Decision Tree C4.5")
-        st.pyplot(fig)
+    st.text("Akurasi Model:")
+    st.write(f"{accuracy_score(y_test, y_pred):.2f}")
 
-    except Exception as e:
-        st.error(f"Terjadi error saat memproses data atau melatih model: {e}")
+    st.subheader("📌 Confusion Matrix")
+    fig3, ax3 = plt.subplots()
+    cm = confusion_matrix(y_test, y_pred)
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                xticklabels=model_c45.classes_,
+                yticklabels=model_c45.classes_,
+                ax=ax3)
+    st.pyplot(fig3)
+
+    # Visualisasi Pohon Keputusan
+    st.subheader("🌳 Visualisasi Pohon Keputusan")
+    fig4, ax4 = plt.subplots(figsize=(16, 6))
+    plot_tree(model_c45, feature_names=fitur, class_names=model_c45.classes_,
+              filled=True, rounded=True, fontsize=10, ax=ax4)
+    st.pyplot(fig4)
+
+    # Visualisasi Tambahan: Distribusi Harga vs Qty
+    st.subheader("📉 Distribusi Harga vs Jumlah (Qty)")
+    fig5, ax5 = plt.subplots()
+    sns.scatterplot(data=df, x='Harga', y='Qty', hue='Kategori Penjualan', palette='deep', ax=ax5)
+    ax5.set_title("Harga vs Qty per Kategori Penjualan")
+    st.pyplot(fig5)
