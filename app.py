@@ -14,7 +14,7 @@ import numpy as np
 
 # === Konfigurasi Halaman ===
 st.set_page_config(page_title="Dashboard C4.5 Evaluasi (No Upload)", layout="wide")
-st.title("📊 Dashboard Prediksi & Evaluasi Model Decision Tree (C4.5) — Tanpa Upload")
+st.title("📊 Dashboard Prediksi & Evaluasi Model Decision Tree (C4.5)")
 
 # === Load Dataset Lokal ===
 @st.cache_data
@@ -112,3 +112,4 @@ elif menu == "Confusion Matrix (Manual)":
     # Tampilkan ringkasan weighted scores dalam bar chart
     st.subheader("📊 Weighted Scores (Manual)")
     weighted_scores = [0.98, 0.98, 0.98]  # precision_
+
