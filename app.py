@@ -78,22 +78,6 @@ elif menu == "Confusion Matrix (Manual)":
 
 # === Evaluasi Otomatis dari Model ===
 elif menu == "Eval Model (Auto)":
-    st.header("📋 Evaluasi Model (Dihitung Otomatis)")
-    y_pred = model.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred, labels=model.classes_)
-    cr = classification_report(y_test, y_pred, target_names=model.classes_, output_dict=True)
-    # Heatmap
-    fig, ax = plt.subplots(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=model.classes_, yticklabels=model.classes_, ax=ax)
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    st.pyplot(fig)
-    st.subheader("Classification Report")
-    st.dataframe(pd.DataFrame(cr).transpose().round(2))
-    precision = precision_score(y_test, y_pred, average='weighted')
-    recall = recall_score(y_test, y_pred, average='weighted')
-    f1 = f1_score(y_test, y_pred, average='weighted')
     st.subheader("Skor Evaluasi")
     fig, ax = plt.subplots(figsize=(6, 4))
     scores = [precision, recall, f1]
@@ -139,3 +123,4 @@ elif menu == "K-Fold":
     for i, v in enumerate(scores):
         ax.text(i+1, v + 0.02, f"{v*100:.1f}%", ha='center')
     st.pyplot(fig)
+
