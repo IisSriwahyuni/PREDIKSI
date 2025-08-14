@@ -1,115 +1,105 @@
-# dashboard_wings_no_upload.py
 import streamlit as st
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.tree import DecisionTreeClassifier, plot_tree
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
-from sklearn.metrics import (
-    classification_report, confusion_matrix, precision_score,
-    recall_score, f1_score, roc_curve, auc
-)
-from sklearn.preprocessing import label_binarize
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.tree import DecisionTreeClassifier, plot_tree
+from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc
 
-# === Konfigurasi Halaman ===
-st.set_page_config(page_title="Dashboard C4.5 Evaluasi (No Upload)", layout="wide")
-st.title("📊 Dashboard Prediksi & Evaluasi Model Decision Tree (C4.5)")
-
-# === Load Dataset Lokal ===
+# -------------------------
+# 1. Load Dataset
+# -------------------------
 @st.cache_data
 def load_data():
-    # Pastikan file PRODUK_WINGS_YMART_BERSIH.csv ada di folder project/working dir
-    return pd.read_csv("PRODUK_WINGS_YMART_BERSIH.csv")
+    # Ganti dengan dataset Anda
+    df = pd.read_csv("dataset_wings.csv")
+    return df
 
-try:
-    df = load_data()
-except Exception as e:
-    st.error(f"Error memuat dataset: {e}")
-    st.stop()
+df = load_data()
 
-required_columns = ['Qty', 'Harga', 'Kategori Penjualan']
-if df.empty or not all(col in df.columns for col in required_columns):
-    st.error(f"Dataset tidak valid. Harus memiliki kolom: {', '.join(required_columns)}")
-    st.stop()
+st.title("📊 Dashboard Prediksi Penjualan Produk Wings")
 
-# === Latih model sekali dan cache ===
-@st.cache_resource
-def train_model(df):
-    X = df[['Qty', 'Harga']]
-    y = df['Kategori Penjualan']
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.4, random_state=42, stratify=y
-    )
-    model = DecisionTreeClassifier(criterion='entropy', max_depth=3, random_state=42)
-    model.fit(X_train, y_train)
-    return model, X_train, X_test, y_train, y_test
+# -------------------------
+# 2. Preprocessing
+# -------------------------
+X = df.drop(columns=["Kategori Penjualan"])  # fitur
+y = df["Kategori Penjualan"]  # target
 
-model, X_train, X_test, y_train, y_test = train_model(df)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
-# === Sidebar Navigasi ===
-menu = st.sidebar.radio("Navigation", [
-    "Dataset", "Decision Tree", "Confusion Matrix (Manual)",
-    "ROC-AUC", "K-Fold", "Visualisasi Tambahan"
-])
+# -------------------------
+# 3. Model
+# -------------------------
+model = DecisionTreeClassifier(criterion="entropy", random_state=42)
+model.fit(X_train, y_train)
+y_pred = model.predict(X_test)
 
-# -----------------------
-# Menu: Dataset
-# -----------------------
-if menu == "Dataset":
-    st.header("📁 Data Penjualan Produk Wings")
-    st.write(f"Total baris: {len(df)}")
-    st.dataframe(df)
+# -------------------------
+# 4. Pengujian Matriks
+# -------------------------
+st.header("📈 Pengujian Matriks")
+cm = confusion_matrix(y_test, y_pred, labels=model.classes_)
+report = classification_report(y_test, y_pred, output_dict=True)
 
-# -----------------------
-# Menu: Decision Tree
-# -----------------------
-elif menu == "Decision Tree":
-    st.header("🌳 Visualisasi Decision Tree")
-    st.markdown("Model dilatih dengan fitur `Qty` dan `Harga` (criterion='entropy', max_depth=3).")
-    fig, ax = plt.subplots(figsize=(14, 6))
-    plot_tree(model, feature_names=['Qty', 'Harga'], class_names=model.classes_, filled=True, rounded=True, fontsize=10, ax=ax)
-    st.pyplot(fig)
+# Tampilkan Confusion Matrix
+fig, ax = plt.subplots()
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=model.classes_, yticklabels=model.classes_)
+plt.xlabel("Prediksi")
+plt.ylabel("Aktual")
+st.pyplot(fig)
 
-    st.markdown("**Pembagian data (train/test):**")
-    st.write({
-        "Total": len(df),
-        "Data Latih": len(X_train),
-        "Data Uji": len(X_test)
-    })
+# Tampilkan metrik
+st.write("**Classification Report**")
+st.dataframe(pd.DataFrame(report).transpose())
 
-# -----------------------
-# Menu: Confusion Matrix (Manual)
-# -----------------------
-elif menu == "Confusion Matrix (Manual)":
-    st.header("📌 Confusion Matrix — Sesuai Evaluasi Terakhir (Manual)")
-    # Confusion matrix yang sudah diperbaiki diberikan langsung
-    cm_manual = np.array([[29, 2, 0],
-                          [0, 17, 0],
-                          [0, 0, 44]])
-    classes = ['Laris', 'Sedang', 'Tidak Laris']
+# -------------------------
+# 5. ROC & AUC
+# -------------------------
+st.header("📉 ROC & AUC")
 
-    fig, ax = plt.subplots(figsize=(6,5))
-    sns.heatmap(cm_manual, annot=True, fmt='d', cmap='Blues',
-                xticklabels=classes, yticklabels=classes, ax=ax)
-    ax.set_xlabel("Predicted Label")
-    ax.set_ylabel("Actual Label")
-    st.pyplot(fig)
+# Konversi label menjadi numerik untuk ROC
+from sklearn.preprocessing import label_binarize
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.preprocessing import LabelEncoder
 
-    st.subheader("📋 Classification Report (Manual)")
-    report_manual = {
-        "Class": classes + ["accuracy", "macro avg", "weighted avg"],
-        "precision": [1.00, 0.89, 1.00, "", 0.96, 0.98],
-        "recall":    [0.94, 1.00, 1.00, "", 0.98, 0.98],
-        "f1-score":  [0.97, 0.94, 1.00, "", 0.97, 0.98],
-        "support":   [31, 17, 44, 92, 92, 92]
-    }
-    df_report = pd.DataFrame(report_manual).set_index("Class")
-    st.dataframe(df_report)
+le = LabelEncoder()
+y_bin = le.fit_transform(y)
+y_train_bin = le.transform(y_train)
+y_test_bin = le.transform(y_test)
 
-    st.metric("🎯 Akurasi Model (Manual)", f"{0.9782608695652174*100:.2f}%")
+# One-vs-rest ROC
+y_score = model.predict_proba(X_test)
+fpr, tpr, _ = roc_curve(y_test_bin, y_score[:, 1], pos_label=1)
+roc_auc = auc(fpr, tpr)
 
-    # Tampilkan ringkasan weighted scores dalam bar chart
-    st.subheader("📊 Weighted Scores (Manual)")
-    weighted_scores = [0.98, 0.98, 0.98]  # precision_
+fig2, ax2 = plt.subplots()
+ax2.plot(fpr, tpr, color="darkorange", lw=2, label=f"ROC curve (AUC = {roc_auc:.2f})")
+ax2.plot([0, 1], [0, 1], color="navy", lw=2, linestyle="--")
+ax2.set_xlim([0.0, 1.0])
+ax2.set_ylim([0.0, 1.05])
+ax2.set_xlabel("False Positive Rate")
+ax2.set_ylabel("True Positive Rate")
+ax2.set_title("ROC Curve")
+ax2.legend(loc="lower right")
+st.pyplot(fig2)
 
+# -------------------------
+# 6. K-Fold Cross Validation
+# -------------------------
+st.header("🔄 K-Fold Cross Validation")
+kf = KFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(model, X, y, cv=kf, scoring="accuracy")
+st.write(f"**Rata-rata Akurasi:** {scores.mean():.2f}")
+st.write(f"**Akurasi per Fold:** {scores}")
+
+# -------------------------
+# 7. Pohon Keputusan
+# -------------------------
+st.header("🌳 Visualisasi Pohon Keputusan")
+fig3, ax3 = plt.subplots(figsize=(15, 8))
+plot_tree(model, feature_names=X.columns, class_names=model.classes_, filled=True)
+st.pyplot(fig3)
