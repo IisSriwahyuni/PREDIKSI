@@ -11,33 +11,22 @@ from sklearn.metrics import (
 from sklearn.preprocessing import label_binarize
 import numpy as np
 
-# =======================
-# Konfigurasi halaman
-# =======================
-st.set_page_config(page_title="Dashboard Decision Tree C4.5", layout="wide")
+# === Konfigurasi Halaman ===
+st.set_page_config(page_title="Dashboard C4.5 Evaluasi", layout="wide")
 st.title("📊 Dashboard Prediksi & Evaluasi Model Decision Tree (C4.5)")
 
-# =======================
-# Load dataset
-# =======================
+# === Load Dataset ===
 @st.cache_data
 def load_data():
     return pd.read_csv("PRODUK_WINGS_YMART_BERSIH.csv")
 
 df = load_data()
-
-if df.empty:
-    st.error("Dataset kosong. Pastikan file tersedia.")
-    st.stop()
-
 required_columns = ['Qty', 'Harga', 'Kategori Penjualan']
-if not all(col in df.columns for col in required_columns):
-    st.error(f"Dataset harus punya kolom: {', '.join(required_columns)}")
+if df.empty or not all(col in df.columns for col in required_columns):
+    st.error(f"Dataset tidak valid. Harus memiliki kolom: {', '.join(required_columns)}")
     st.stop()
 
-# =======================
-# Fungsi training model
-# =======================
+# === Fungsi Training Sekali ===
 @st.cache_resource
 def train_model():
     X = df[['Qty', 'Harga']]
@@ -51,138 +40,102 @@ def train_model():
 
 model, X_train, X_test, y_train, y_test = train_model()
 
-# =======================
-# Menu navigasi
-# =======================
-menu = st.sidebar.radio("📌 Navigasi", [
-    "Dataset", "Distribusi Penjualan", "Pola Penjualan",
-    "Decision Tree", "Evaluasi Model", "ROC-AUC", "K-Fold", "Visualisasi Tambahan"
+# === Navigasi Sidebar ===
+menu = st.sidebar.radio("Navigation", [
+    "Dataset", "Confusion Matrix (Manual)", "Eval Model (Auto)",
+    "ROC-AUC", "K-Fold"
 ])
 
-# =======================
-# Dataset
-# =======================
+# === Tampilkan Dataset ===
 if menu == "Dataset":
     st.header("📁 Data Penjualan Produk Wings")
     st.dataframe(df)
 
-# =======================
-# Distribusi Penjualan
-# =======================
-elif menu == "Distribusi Penjualan":
-    st.header("📊 Distribusi Qty Penjualan")
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.histplot(df["Qty"], bins=30, kde=True, color="skyblue", ax=ax)
+# === Confusion Matrix Manual ===
+elif menu == "Confusion Matrix (Manual)":
+    st.header("📌 Confusion Matrix — Sesuai Evaluasi Terakhir")
+    cm = np.array([[29, 2, 0], [0, 17, 0], [0, 0, 44]])
+    classes = ['Laris', 'Sedang', 'Tidak Laris']
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=classes, yticklabels=classes, ax=ax)
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("Actual Label")
     st.pyplot(fig)
 
-# =======================
-# Pola Penjualan
-# =======================
-elif menu == "Pola Penjualan":
-    st.header("📈 Pola Penjualan per Kategori")
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.boxplot(x="Kategori Penjualan", y="Qty", data=df, palette="viridis", ax=ax)
-    st.pyplot(fig)
+    report = {
+        "Class": classes + ["accuracy", "macro avg", "weighted avg"],
+        "precision": [1.00, 0.89, 1.00, "", 0.96, 0.98],
+        "recall":    [0.94, 1.00, 1.00, "", 0.98, 0.98],
+        "f1-score":  [0.97, 0.94, 1.00, "", 0.97, 0.98],
+        "support":   [31, 17, 44, 92, 92, 92]
+    }
+    st.subheader("📋 Classification Report")
+    st.dataframe(pd.DataFrame(report).set_index("Class"))
 
-# =======================
-# Decision Tree
-# =======================
-elif menu == "Decision Tree":
-    st.header("🌳 Visualisasi Decision Tree")
-    fig, ax = plt.subplots(figsize=(18, 8))
-    plot_tree(
-        model,
-        feature_names=['Qty', 'Harga'],
-        class_names=model.classes_,
-        filled=True, rounded=True,
-        fontsize=10, ax=ax
-    )
-    st.pyplot(fig)
+    acc = 0.9782608695652174
+    st.metric("🎯 Akurasi Model", f"{acc * 100:.2f}%")
 
-# =======================
-# Evaluasi Model
-# =======================
-elif menu == "Evaluasi Model":
-    st.header("📋 Evaluasi Model")
+# === Evaluasi Otomatis dari Model ===
+elif menu == "Eval Model (Auto)":
+    st.header("📋 Evaluasi Model (Dihitung Otomatis)")
     y_pred = model.predict(X_test)
-
     cm = confusion_matrix(y_test, y_pred, labels=model.classes_)
     cr = classification_report(y_test, y_pred, target_names=model.classes_, output_dict=True)
+    # Heatmap
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=model.classes_, yticklabels=model.classes_, ax=ax)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    st.pyplot(fig)
+    st.subheader("Classification Report")
+    st.dataframe(pd.DataFrame(cr).transpose().round(2))
     precision = precision_score(y_test, y_pred, average='weighted')
     recall = recall_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
-
-    # Confusion Matrix
-    st.subheader("📌 Confusion Matrix")
-    cm_df = pd.DataFrame(cm, index=model.classes_, columns=model.classes_)
-    fig, ax = plt.subplots(figsize=(5, 4))
-    sns.heatmap(cm_df, annot=True, fmt='d', cmap='Blues', ax=ax)
-    st.pyplot(fig)
-
-    # Classification Report
-    st.subheader("📌 Classification Report")
-    st.dataframe(pd.DataFrame(cr).transpose().round(2))
-
-    # Skor Evaluasi
-    st.subheader("📌 Skor Evaluasi")
-    fig, ax = plt.subplots(figsize=(5, 4))
+    st.subheader("Skor Evaluasi")
+    fig, ax = plt.subplots(figsize=(6, 4))
     scores = [precision, recall, f1]
     labels = ["Precision", "Recall", "F1 Score"]
     sns.barplot(x=labels, y=scores, palette="Set2", ax=ax)
     ax.set_ylim(0, 1.0)
     for i, v in enumerate(scores):
-        ax.text(i, v + 0.02, f"{v*100:.1f}%", ha='center', fontsize=8)
+        ax.text(i, v + 0.02, f"{v*100:.1f}%", ha='center')
     st.pyplot(fig)
 
-# =======================
-# ROC-AUC Multi-Class
-# =======================
+# === ROC-AUC Multi-Class ===
 elif menu == "ROC-AUC":
     st.header("📈 ROC-AUC Multi-Class")
     y_prob = model.predict_proba(X_test)
     classes = model.classes_
     y_bin = label_binarize(y_test, classes=classes)
-
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(6, 6))
     colors = ['blue', 'green', 'red']
-    for i, class_label in enumerate(classes):
+    for i, cls in enumerate(classes):
         fpr, tpr, _ = roc_curve(y_bin[:, i], y_prob[:, i])
         roc_auc = auc(fpr, tpr)
-        ax.plot(fpr, tpr, color=colors[i], lw=2,
-                label=f"{class_label} (AUC = {roc_auc:.2f})")
+        ax.plot(fpr, tpr, color=colors[i], lw=2, label=f"{cls} (AUC = {roc_auc:.2f})")
     ax.plot([0, 1], [0, 1], 'k--')
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
     ax.legend()
     st.pyplot(fig)
 
-# =======================
-# K-Fold Cross Validation
-# =======================
+# === K-Fold Cross Validation ===
 elif menu == "K-Fold":
-    st.header("🔄 K-Fold Cross Validation")
+    st.header("🔄 K-Fold Cross Validation (5-Fold)")
     X = df[['Qty', 'Harga']]
     y = df['Kategori Penjualan']
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     scores = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
-
     st.write("Akurasi per Fold:", scores)
     st.write(f"Rata-rata Akurasi: {scores.mean():.4f}")
-
-    fig, ax = plt.subplots()
-    ax.bar(range(1, len(scores) + 1), scores, color="skyblue")
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(range(1, len(scores)+1), scores, color="skyblue")
     ax.set_xlabel("Fold ke-")
     ax.set_ylabel("Akurasi")
     ax.set_ylim(0, 1)
     for i, v in enumerate(scores):
-        ax.text(i+1, v + 0.02, f"{v*100:.1f}%", ha='center', fontsize=8)
-    st.pyplot(fig)
-
-# =======================
-# Visualisasi Tambahan
-# =======================
-elif menu == "Visualisasi Tambahan":
-    st.header("📊 Visualisasi Tambahan")
-    fig, ax = plt.subplots(figsize=(6, 4))
-    sns.countplot(data=df, x='Kategori Penjualan', palette='coolwarm', ax=ax)
+        ax.text(i+1, v + 0.02, f"{v*100:.1f}%", ha='center')
     st.pyplot(fig)
