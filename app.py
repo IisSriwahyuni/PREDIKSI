@@ -42,7 +42,7 @@ model, X_train, X_test, y_train, y_test = train_model()
 
 # === Navigasi Sidebar ===
 menu = st.sidebar.radio("Navigation", [
-    "Dataset", "Confusion Matrix (Manual)", "Eval Model (Auto)",
+    "Dataset", "Confusion Matrix", "Eval Model (Auto)",
     "ROC-AUC", "K-Fold"
 ])
 
@@ -51,8 +51,8 @@ if menu == "Dataset":
     st.header("📁 Data Penjualan Produk Wings")
     st.dataframe(df)
 
-# === Confusion Matrix Manual ===
-elif menu == "Confusion Matrix (Manual)":
+# === Confusion Matrix ===
+elif menu == "Confusion Matrix":
     st.header("📌 Confusion Matrix — Sesuai Evaluasi Terakhir")
     cm = np.array([[29, 2, 0], [0, 17, 0], [0, 0, 44]])
     classes = ['Laris', 'Sedang', 'Tidak Laris']
@@ -139,3 +139,4 @@ elif menu == "K-Fold":
     for i, v in enumerate(scores):
         ax.text(i+1, v + 0.02, f"{v*100:.1f}%", ha='center')
     st.pyplot(fig)
+
