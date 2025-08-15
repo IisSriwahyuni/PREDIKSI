@@ -28,12 +28,12 @@ if df.empty or not all(col in df.columns for col in required_columns):
 # === Fungsi Training Sekali ===
 @st.cache_resource
 def train_model():
-    X = df.select_dtypes(include=[np.number])  # semua kolom numerik
+    X = df[['Qty', 'Harga']]
     y = df['Kategori Penjualan']
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.4, random_state=42
     )
-    model = DecisionTreeClassifier(criterion='entropy', random_state=42)
+    model = DecisionTreeClassifier(criterion='entropy', max_depth=3, random_state=42)
     model.fit(X_train, y_train)
     return model, X_train, X_test, y_train, y_test
 
@@ -119,12 +119,13 @@ elif menu == "Decision Tree":
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_tree(
         model,
-        feature_names = X_train.columns,
+        feature_names=['Qty', 'Harga'],
         class_names=model.classes_,
         filled=True,
         rounded=True,
         fontsize=10
     )
     st.pyplot(fig)
+
 
 
