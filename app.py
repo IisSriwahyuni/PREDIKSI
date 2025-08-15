@@ -119,11 +119,12 @@ elif menu == "Decision Tree":
     fig, ax = plt.subplots(figsize=(12, 6))
     plot_tree(
         model,
-        feature_names=['Qty', 'Harga'],
+        feature_names = X_train.columns,
         class_names=model.classes_,
         filled=True,
         rounded=True,
         fontsize=10
     )
     st.pyplot(fig)
+
 
