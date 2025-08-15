@@ -6,9 +6,8 @@ from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.metrics import (
     classification_report, confusion_matrix, precision_score,
-    recall_score, f1_score
+    recall_score, f1_score, accuracy_score
 )
-from sklearn.preprocessing import label_binarize
 import numpy as np
 
 # === Konfigurasi Halaman ===
@@ -42,8 +41,7 @@ model, X_train, X_test, y_train, y_test = train_model()
 
 # === Navigasi Sidebar ===
 menu = st.sidebar.radio("Navigation", [
-    "Dataset", "Confusion Matrix", "Eval Model (Auto)",
-    "K-Fold", "Decision Tree"
+    "Dataset", "Confusion Matrix", "K-Fold", "Decision Tree"
 ])
 
 # === Tampilkan Dataset ===
@@ -51,58 +49,37 @@ if menu == "Dataset":
     st.header("📁 Data Penjualan Produk Wings")
     st.dataframe(df)
 
-# === Confusion Matrix ===
+# === Confusion Matrix + Skor Evaluasi ===
 elif menu == "Confusion Matrix":
-    st.header("📌 Confusion Matrix — Sesuai Evaluasi Terakhir")
-    cm = np.array([[29, 2, 0], [0, 17, 0], [0, 0, 44]])
-    classes = ['Laris', 'Sedang', 'Tidak Laris']
+    st.header("📌 Confusion Matrix & Skor Evaluasi Model")
+    
+    # Prediksi
+    y_pred = model.predict(X_test)
+    
+    # Confusion matrix
+    cm = confusion_matrix(y_test, y_pred, labels=model.classes_)
+    classes = model.classes_
     fig, ax = plt.subplots(figsize=(6, 5))
     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
                 xticklabels=classes, yticklabels=classes, ax=ax)
     ax.set_xlabel("Predicted Label")
     ax.set_ylabel("Actual Label")
     st.pyplot(fig)
-
-    report = {
-        "Class": classes + ["accuracy", "macro avg", "weighted avg"],
-        "precision": [1.00, 0.89, 1.00, "", 0.96, 0.98],
-        "recall":    [0.94, 1.00, 1.00, "", 0.98, 0.98],
-        "f1-score":  [0.97, 0.94, 1.00, "", 0.97, 0.98],
-        "support":   [31, 17, 44, 92, 92, 92]
-    }
-    st.subheader("📋 Classification Report")
-    st.dataframe(pd.DataFrame(report).set_index("Class"))
-
-    acc = 0.9782608695652174
-    st.metric("🎯 Akurasi Model", f"{acc * 100:.2f}%")
-
-# === Evaluasi Otomatis dari Model ===
-elif menu == "Eval Model (Auto)":
-    st.header("📋 Evaluasi Model (Dihitung Otomatis)")
-    y_pred = model.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred, labels=model.classes_)
-    cr = classification_report(y_test, y_pred, target_names=model.classes_, output_dict=True)
-    # Heatmap
-    fig, ax = plt.subplots(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
-                xticklabels=model.classes_, yticklabels=model.classes_, ax=ax)
-    ax.set_xlabel("Predicted")
-    ax.set_ylabel("Actual")
-    st.pyplot(fig)
-    st.subheader("Classification Report")
-    st.dataframe(pd.DataFrame(cr).transpose().round(2))
+    
+    # Skor evaluasi
     precision = precision_score(y_test, y_pred, average='weighted')
     recall = recall_score(y_test, y_pred, average='weighted')
     f1 = f1_score(y_test, y_pred, average='weighted')
-    st.subheader("Skor Evaluasi")
-    fig, ax = plt.subplots(figsize=(6, 4))
-    scores = [precision, recall, f1]
-    labels = ["Precision", "Recall", "F1 Score"]
-    sns.barplot(x=labels, y=scores, palette="Set2", ax=ax)
-    ax.set_ylim(0, 1.0)
-    for i, v in enumerate(scores):
-        ax.text(i, v + 0.02, f"{v*100:.1f}%", ha='center')
-    st.pyplot(fig)
+    accuracy = accuracy_score(y_test, y_pred)
+    
+    st.subheader("📊 Skor Evaluasi")
+    scores = {
+        "Akurasi": accuracy,
+        "Precision": precision,
+        "Recall": recall,
+        "F1 Score": f1
+    }
+    st.table({k: [f"{v*100:.2f}%"] for k, v in scores.items()})
 
 # === K-Fold Cross Validation ===
 elif menu == "K-Fold":
