@@ -6,7 +6,7 @@ from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.metrics import (
     classification_report, confusion_matrix, precision_score,
-    recall_score, f1_score, roc_curve, auc
+    recall_score, f1_score
 )
 from sklearn.preprocessing import label_binarize
 import numpy as np
@@ -43,7 +43,7 @@ model, X_train, X_test, y_train, y_test = train_model()
 # === Navigasi Sidebar ===
 menu = st.sidebar.radio("Navigation", [
     "Dataset", "Confusion Matrix", "Eval Model (Auto)",
-    "ROC-AUC", "K-Fold", "Decision Tree"
+    "K-Fold", "Decision Tree"
 ])
 
 # === Tampilkan Dataset ===
@@ -102,24 +102,6 @@ elif menu == "Eval Model (Auto)":
     ax.set_ylim(0, 1.0)
     for i, v in enumerate(scores):
         ax.text(i, v + 0.02, f"{v*100:.1f}%", ha='center')
-    st.pyplot(fig)
-
-# === ROC-AUC Multi-Class ===
-elif menu == "ROC-AUC":
-    st.header("📈 ROC-AUC Multi-Class")
-    y_prob = model.predict_proba(X_test)
-    classes = model.classes_
-    y_bin = label_binarize(y_test, classes=classes)
-    fig, ax = plt.subplots(figsize=(6, 6))
-    colors = ['blue', 'green', 'red']
-    for i, cls in enumerate(classes):
-        fpr, tpr, _ = roc_curve(y_bin[:, i], y_prob[:, i])
-        roc_auc = auc(fpr, tpr)
-        ax.plot(fpr, tpr, color=colors[i], lw=2, label=f"{cls} (AUC = {roc_auc:.2f})")
-    ax.plot([0, 1], [0, 1], 'k--')
-    ax.set_xlabel("False Positive Rate")
-    ax.set_ylabel("True Positive Rate")
-    ax.legend()
     st.pyplot(fig)
 
 # === K-Fold Cross Validation ===
