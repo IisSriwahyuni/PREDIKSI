@@ -43,7 +43,7 @@ model, X_train, X_test, y_train, y_test = train_model()
 # === Navigasi Sidebar ===
 menu = st.sidebar.radio("Navigation", [
     "Dataset", "Confusion Matrix", "Eval Model (Auto)",
-    "ROC-AUC", "K-Fold"
+    "ROC-AUC", "K-Fold", "Decision Tree"
 ])
 
 # === Tampilkan Dataset ===
@@ -140,3 +140,16 @@ elif menu == "K-Fold":
         ax.text(i+1, v + 0.02, f"{v*100:.1f}%", ha='center')
     st.pyplot(fig)
 
+# === Visualisasi Pohon Keputusan ===
+elif menu == "Decision Tree":
+    st.header("🌳 Visualisasi Pohon Keputusan (Decision Tree C4.5)")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    plot_tree(
+        model,
+        feature_names=['Qty', 'Harga'],
+        class_names=model.classes_,
+        filled=True,
+        rounded=True,
+        fontsize=10
+    )
+    st.pyplot(fig)
