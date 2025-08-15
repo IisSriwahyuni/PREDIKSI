@@ -60,4 +60,69 @@ elif menu == "Confusion Matrix":
     cm = confusion_matrix(y_test, y_pred, labels=model.classes_)
     classes = model.classes_
     fig, ax = plt.subplots(figsize=(6, 5))
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blue
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=classes, yticklabels=classes, ax=ax)
+    ax.set_xlabel("Predicted Label")
+    ax.set_ylabel("Actual Label")
+    st.pyplot(fig)
+    
+    # Skor evaluasi
+    precision = precision_score(y_test, y_pred, average='weighted')
+    recall = recall_score(y_test, y_pred, average='weighted')
+    f1 = f1_score(y_test, y_pred, average='weighted')
+    accuracy = accuracy_score(y_test, y_pred)
+    
+    st.subheader("📊 Skor Evaluasi")
+    scores = {
+        "Akurasi": accuracy,
+        "Precision": precision,
+        "Recall": recall,
+        "F1 Score": f1
+    }
+    
+    # Tabel skor evaluasi
+    st.table({k: [f"{v*100:.2f}%"] for k, v in scores.items()})
+    
+    # Diagram batang skor evaluasi
+    fig, ax = plt.subplots(figsize=(6, 4))
+    labels = list(scores.keys())
+    values = list(scores.values())
+    sns.barplot(x=labels, y=values, palette="Set2", ax=ax)
+    ax.set_ylim(0, 1.0)
+    ax.set_ylabel("Skor")
+    ax.set_title("Visualisasi Skor Evaluasi")
+    for i, v in enumerate(values):
+        ax.text(i, v + 0.02, f"{v*100:.1f}%", ha='center')
+    st.pyplot(fig)
+
+# === K-Fold Cross Validation ===
+elif menu == "K-Fold":
+    st.header("🔄 K-Fold Cross Validation (5-Fold)")
+    X = df[['Qty', 'Harga']]
+    y = df['Kategori Penjualan']
+    kf = KFold(n_splits=5, shuffle=True, random_state=42)
+    scores = cross_val_score(model, X, y, cv=kf, scoring='accuracy')
+    st.write("Akurasi per Fold:", scores)
+    st.write(f"Rata-rata Akurasi: {scores.mean():.4f}")
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.bar(range(1, len(scores)+1), scores, color="skyblue")
+    ax.set_xlabel("Fold ke-")
+    ax.set_ylabel("Akurasi")
+    ax.set_ylim(0, 1)
+    for i, v in enumerate(scores):
+        ax.text(i+1, v + 0.02, f"{v*100:.1f}%", ha='center')
+    st.pyplot(fig)
+
+# === Visualisasi Pohon Keputusan ===
+elif menu == "Decision Tree":
+    st.header("🌳 Visualisasi Pohon Keputusan (Decision Tree C4.5)")
+    fig, ax = plt.subplots(figsize=(12, 6))
+    plot_tree(
+        model,
+        feature_names=['Qty', 'Harga'],
+        class_names=model.classes_,
+        filled=True,
+        rounded=True,
+        fontsize=10
+    )
+    st.pyplot(fig)
